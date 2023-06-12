@@ -1,0 +1,167 @@
+#contentWrapper{
+    width: 1120px;
+    padding: 30px 0 0;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: flex-start;
+    align-content: flex-start;
+    margin: 0 auto;
+}
+
+#contentWrapper>h1{
+    width: 100%;
+    text-align: center;
+}
+
+#navBarHolder{
+    width: 100%;
+}
+
+dir-bar {
+    width: 1120px;
+    margin: 0 auto;
+    padding: 20px 0;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    align-items: center;
+    align-content: center;
+}
+dir-item{
+    display: block;
+    position: relative;
+    padding: 0 10px 0 15px;
+    font-size: 15px;
+    line-height: 100%;
+    letter-spacing: 0.07em;
+}
+
+dir-item:first-of-type{
+    padding-left: 0;
+
+}
+
+dir-item:before {
+    position: absolute;
+    display: inline-block;
+    top: 50%;
+    left: 0;
+    margin-top: -5px;
+    color: #000;
+    font-size: 15px;
+    font-weight: 700;
+    font-family: "Font Awesome 5 Pro", serif;
+    -webkit-font-smoothing: antialiased;
+    font-style: normal;
+    font-variant: normal;
+    text-rendering: auto;
+    line-height: 100%;
+    content: "\f105";
+}
+
+dir-item:first-of-type:before{
+    content: "" !important;
+}
+
+dir-item>span{
+    color: #06a7ff;
+}
+
+dir-item>a{
+    display: block;
+    color: #000;
+    transition: 0.2s ease all;
+    cursor: pointer;
+}
+
+dir-item>a:hover {
+    opacity: 0.7;
+    transform: translateY(-2px);
+}
+
+.controlButtons {
+    display: inline-block;
+    visibility: hidden;
+    width: 100px;
+}
+
+.controlButtons > .fileBtn {
+    height: 20px;
+    width: 20px;
+    padding-left: 5px;
+    padding-right: 5px;
+    display: inline-block;
+    color: #000;
+}
+
+file-list{
+    width: 100%;
+}
+
+file-item{
+    display: block;
+    width: 100%;
+    height: 25px;
+    padding-bottom: 10px;
+    padding-top: 10px;
+    border-bottom: 1px #ddd solid;
+    transition: 0.5s ease all;
+}
+
+file-item:nth-child(n+2):hover{
+
+    transform: translateY(-2px);
+    background-color: #ddd;
+}
+
+file-item:nth-child(n+2):hover>.controlButtons{
+    visibility: visible;
+}
+
+file-item>.fileIcon{
+    display: inline-block;
+    width: 30px;
+    text-align: center;
+}
+
+file-item>.fileLastModified{
+    display: inline-block;
+    width: 250px;
+    text-align: center;
+}
+
+file-item>.fileName{
+    display: inline-block;
+    width: 480px;
+}
+
+file-item>.fileSize{
+    display: inline-block;
+    width: 66px;
+    text-align: center;
+}
+
+file-item>.fileNameEditor{
+    display: none;
+    width: 480px;
+}
+
+file-item>.fileNameEditor>*{
+    margin-right: 5px;
+}
+
+file-item.editingName>.fileNameEditor{
+    display: inline-block;
+}
+
+file-item.editingName>.fileName{
+    display: none;
+}
+
+#fileListHolder{
+    width: 100%;
+}
+

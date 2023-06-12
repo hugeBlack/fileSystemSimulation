@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <link href="/static/dirView.css" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="https://pro.fontawesome.com/releases/v5.7.1/css/all.css">
+</head>
+<body>
+
+<div id="contentWrapper">
+    <h1>文件管理系统模拟</h1>
+    <div id="controlBar">
+        <button id="createDirBtn">新建文件夹</button>
+        <button id="createFileBtn">新建文本文件</button>
+        <button id="uploadFileBtn">上传文件</button>
+    </div>
+    <div id="navBarHolder"></div>
+    <div id="fileListHolder"></div>
+</div>
+
+
+<template id="fileItemTemplate">
+    <i class="fileIcon"></i>
+    <span class="fileName"></span>
+    <span class="fileNameEditor">
+        <input class="newFileNameInput" />
+        <span class="submitRenameBtn"><i class="fas fa-check"></i></span>
+        <span class="cancelRenameBtn"><i class="fas fa-times"></i></span>
+    </span>
+    <div class="controlButtons">
+        <div class="downloadButton fileBtn"><i class="fas fa-arrow-to-bottom"></i></div>
+        <div class="renameButton fileBtn"><i class="fas fa-i-cursor"></i></div>
+        <div class="deleteButton fileBtn"><i class="fas fa-trash-alt"></i></div>
+    </div>
+    <span class="fileLastModified"></span>
+    <span class="fileSize"></span>
+</template>
+
+<script src="/static/dirViewComponents.js"></script>
+<script src="/static/dirView.js"></script>
+</body>
+</html>

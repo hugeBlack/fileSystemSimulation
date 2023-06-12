@@ -103,6 +103,12 @@ class BitMapHelper:
         self.reader.seek(self.bitMapStartPtr)
         return self.reader.read(self.bitMapLength)
 
+    def checkIsFree(self, index: int):
+        self.reader.seek(self.bitMapStartPtr + index // 8)
+        byte = self.reader.read(1)[0]
+        bitMask = 128 >> (index % 8)
+        return byte & bitMask == 0
+
 
 if __name__ == "__main__":
     a = b'\xff\xff\xff\xff\xff'

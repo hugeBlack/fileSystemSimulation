@@ -48,9 +48,16 @@ class HbDisk:
         self.inodeBMHelper = BitMapHelper(self, self.inodeBitmapPtr, iNodeBitMapLength)
         self.blockBMHelper = BitMapHelper(self, self.blockBitmapPtr, blockBitMapLength)
 
+        # 建立根目录INode
+        if reader is not None:
+            self.rootInode = INode(self, 0)
+        else:
+            a = self.allocINode()
+            self.rootInode = INode(self, a, isNew=True)
+
     def allocINode(self):
         i = self.inodeBMHelper.allocZero()
-        self.inodeCount -= 1
+        self.inodeLeft -= 1
         ptr = self.getINodePtr(i)
         self.seek(ptr)
         self.write(bytes(128))
@@ -88,9 +95,6 @@ class HbDisk:
 
     def getDataBlockNum(self, ptr: int):
         return (ptr - self.dataTablePtr) >> 11
-
-    def createFile(self, path: str, name: str):
-        pass
 
     def seek(self, ptr: int):
         self.streamPtr = ptr
@@ -394,8 +398,8 @@ class HbFile:
         if readLength < 0:
             raise Exception("Read length should be greater than 0.")
         if readLength == 0:
-            readLength = self.inode.size - self.nowPtr - 1
-        readLength = min(self.inode.size - self.nowPtr - 1, readLength)
+            readLength = self.inode.size - self.nowPtr
+        readLength = min(self.inode.size - self.nowPtr, readLength)
         while readLength > 0:
             self.loadBlockPtr()
             readLengthInBlock = min(2048 - self.nowPtr % 2048, readLength)
@@ -409,8 +413,8 @@ class HbFile:
         if w:
             self.nowPtr = 0
             self.resize(len(content))
-        elif self.inode.size < len(content) + self.nowPtr + 1:
-            self.resize(len(content) + self.nowPtr + 1)
+        elif self.inode.size < len(content) + self.nowPtr:
+            self.resize(len(content) + self.nowPtr)
 
         # writeLenTotal = len(content)
         writeStartIndex = 0
@@ -424,6 +428,7 @@ class HbFile:
             writeStartIndex += writeLength
             lengthLeft -= writeLength
         self.inode.save()
+
 
 class HbDirEntry:
     def __init__(self, inodePtr: int, fileType: int, fileName: str):
@@ -472,6 +477,11 @@ class HbFolder(HbFile):
         inode = INode(self.disk, self.disk.allocINode(), isNew=True)
         self.fileList.append(HbDirEntry(inode.ptr, 1, dirName))
         self.save()
+        f = HbFolder(self.disk, "", inode)
+        # 添加.和..
+        f.fileList.append(HbDirEntry(self.inode.ptr, 1, '..'))
+        f.fileList.append(HbDirEntry(inode.ptr, 1, "."))
+        f.save()
 
     def createFile(self, fileName):
         if self.findFileEntry(fileName) is not None:
@@ -479,6 +489,7 @@ class HbFolder(HbFile):
         inode = INode(self.disk, self.disk.allocINode(), isNew=True)
         self.fileList.append(HbDirEntry(inode.ptr, 0, fileName))
         self.save()
+        return HbFile(self.disk, "", inode)
 
     def renameSubFile(self, oldName, newName):
         if len(newName) > 255:
@@ -494,9 +505,13 @@ class HbFolder(HbFile):
         if entry is None:
             raise Exception("File with that name not found.")
         self.deleteEntry(entry, recursive)
+        self.fileList.remove(entry)
+        self.save()
 
     def deleteEntry(self, entry, recursive):
-        if entry.fileName != 1:
+        if entry.fileName == '..' or entry.fileName == '.':
+            raise "You can't delete this."
+        if entry.fileType != 1:
             file = HbFile(self.disk, "", INode(disk=self.disk, inodePtr=entry.inodePtr))
             file.resize(0)
         elif recursive:
@@ -506,7 +521,6 @@ class HbFolder(HbFile):
         else:
             raise Exception("Folder cannot be deleted without recursive mode.")
         self.disk.releaseINode(self.disk.getINodeNumber(entry.inodePtr))
-        self.fileList.remove(entry)
 
     def getFile(self, fileName: str):
         entry = self.findFileEntry(fileName)
@@ -519,31 +533,18 @@ class HbFolder(HbFile):
 
     def deleteAllSubFile(self):
         for entry in self.fileList:
-            self.deleteEntry(entry, True)
+            if entry.fileName != '..' and entry.fileName != '.':
+                self.deleteEntry(entry, True)
 
 
-# 24block 8inode
-dk = HbDisk(500, 8)
-a = dk.allocINode()
-myInode = INode(dk, a, isNew=True)
-# f = HbFile(dk, "", inode)
-data = randbytes(432000)
-# data2 = randbytes(11450)
-#
-# f.write(data)
-# f.write(data2)
-# f.seek(0)
-#
+if __name__ == "__main__":
+    # 24block 8inode
+    dk = HbDisk(500, 8)
 
-
-root = HbFolder(dk, "", myInode)
-root.createFile("myFolder")
-root.createDir("test")
-a = root.getFile("test")
-b = root.getFile("myFolder")
-b.write(data)
-r2 = HbFolder(dk, "", myInode)
-c = r2.getFile("myFolder")
-data3 = c.read(432000)
-print(hashlib.sha1(data).hexdigest())
-print(hashlib.sha1(data3).hexdigest())
+    # f = HbFile(dk, "", inode)
+    data = randbytes(432000)
+    # data2 = randbytes(11450)
+    #
+    # f.write(data)
+    # f.write(data2)
+    # f.seek(0)

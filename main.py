@@ -80,6 +80,9 @@ class HbDisk:
     def getINodePtr(self, inodeNumber: int):
         return self.inodeTablePtr + (inodeNumber << 7)
 
+    def getINodeNumber(self, inodePtr: int):
+        return (inodePtr - self.inodeTablePtr) >> 7
+
     def getDataBlockPtr(self, dataBlockNumber: int):
         return self.dataTablePtr + (dataBlockNumber << 11)
 
@@ -112,32 +115,33 @@ class HbDisk:
 
 
 class INode:
-    def __init__(self, disk: HbDisk, inodeNumber: int, fileType: int = 0, isNew=False):
+    def __init__(self, disk: HbDisk, inodeNumber: int = -1, inodePtr: int = -1, isNew=False):
         self.disk = disk
-        self.ptr = disk.getINodePtr(inodeNumber)
+        if inodePtr != -1:
+            self.ptr = inodePtr
+        else:
+            self.ptr = disk.getINodePtr(inodeNumber)
         disk.seek(self.ptr)
         if isNew:
             self.size = 0
             disk.write(struct.pack("q", 0))
             self.lastModifyTimeStamp = math.floor(time.time() * 1000)
             disk.write(struct.pack("q", self.lastModifyTimeStamp))
-            self.fileType = fileType
-            disk.write(struct.pack("q", self.fileType))
         else:
             self.size = struct.unpack("q", disk.read(8))[0]
             self.lastModifyTimeStamp = struct.unpack("q", disk.read(8))[0]
-            self.fileType = struct.unpack("q", disk.read(8))[0]
 
     def save(self):
+        self.disk.seek(self.ptr)
         self.disk.write(struct.pack("q", self.size))
         self.disk.write(struct.pack("q", self.lastModifyTimeStamp))
 
     def getDirBlockPtr(self, dirBlockIndex: int):
-        self.disk.seek(self.ptr + 24 + dirBlockIndex * 8)
+        self.disk.seek(self.ptr + 16 + dirBlockIndex * 8)
         return struct.unpack("q", self.disk.read(8))[0]
 
     def saveDirBlockPtr(self, dirBlockIndex: int, ptr: int):
-        self.disk.seek(self.ptr + 24 + dirBlockIndex * 8)
+        self.disk.seek(self.ptr + 16 + dirBlockIndex * 8)
         self.disk.write(struct.pack("q", ptr))
 
     def getIndirectBlockPtr(self):
@@ -178,19 +182,19 @@ class HbFile:
         self.nowBlockStartPtr = -1
 
     def getBlockStartPtrOrAlloc(self, blockId):
-        if blockId <= 9:
+        if blockId <= 10:
             ptr0 = self.inode.getDirBlockPtr(blockId)
             if ptr0 == 0:
                 ptr0 = self.disk.getDataBlockPtr(self.disk.allocBlock())
                 self.inode.saveDirBlockPtr(blockId, ptr0)
             return ptr0
 
-        if blockId <= 9 + 256:
+        if blockId <= 10 + 256:
             ptr1 = self.inode.getIndirectBlockPtr()
             if ptr1 == 0:
                 ptr1 = self.disk.getDataBlockPtr(self.disk.allocBlock())
                 self.inode.saveIndirectBlockPtr(ptr1)
-            blockIdL1 = blockId - 10
+            blockIdL1 = blockId - 11
             self.disk.seek(ptr1 + blockIdL1 * 8)
             ptr0 = struct.unpack("q", self.disk.read(8))[0]
             if ptr0 == 0:
@@ -199,19 +203,19 @@ class HbFile:
                 self.disk.write(struct.pack("q", ptr0))
             return ptr0
 
-        if blockId <= 9 + 256 + 256 * 256:
+        if blockId <= 10 + 256 + 256 * 256:
             ptr2 = self.inode.getDoubleIndirectBlockPtr()
             if ptr2 == 0:
                 ptr2 = self.disk.getDataBlockPtr(self.disk.allocBlock())
                 self.inode.saveDoubleIndirectBlockPtr(ptr2)
-            blockIdL2 = math.floor((blockId - 10 - 256) / 256)
+            blockIdL2 = math.floor((blockId - 11 - 256) / 256)
             self.disk.seek(ptr2 + blockIdL2 * 8)
             ptr1 = struct.unpack("q", self.disk.read(8))[0]
             if ptr1 == 0:
                 ptr1 = self.disk.getDataBlockPtr(self.disk.allocBlock())
                 self.disk.seek(ptr2 + blockIdL2 * 8)
                 self.disk.write(struct.pack("q", ptr1))
-            blockIdL1 = (blockId - 10) % 256
+            blockIdL1 = (blockId - 11) % 256
             self.disk.seek(ptr1 + blockIdL1 * 8)
             ptr0 = struct.unpack("q", self.disk.read(8))[0]
             if ptr0 == 0:
@@ -220,26 +224,26 @@ class HbFile:
                 self.disk.write(struct.pack("q", ptr0))
             return ptr0
 
-        if blockId <= 9 + 256 + 256 * 256 + 256 * 256 * 256:
+        if blockId <= 10 + 256 + 256 * 256 + 256 * 256 * 256:
             ptr3 = self.inode.getThirdIndirectBlockPtr()
             if ptr3 == 0:
                 ptr3 = self.disk.getDataBlockPtr(self.disk.allocBlock())
                 self.inode.saveThirdIndirectBlockPtr(ptr3)
-            blockIdL3 = math.floor((blockId - 10 - 256 - 65536) / 65536)
+            blockIdL3 = math.floor((blockId - 11 - 256 - 65536) / 65536)
             self.disk.seek(ptr3 + blockIdL3 * 8)
             ptr2 = struct.unpack("q", self.disk.read(8))[0]
             if ptr2 == 0:
                 ptr2 = self.disk.getDataBlockPtr(self.disk.allocBlock())
                 self.disk.seek(ptr3 + blockIdL3 * 8)
                 self.disk.write(struct.pack("q", ptr2))
-            blockIdL2 = (blockId - 10 - 256) % 65536
+            blockIdL2 = (blockId - 11 - 256) % 65536
             self.disk.seek(ptr2 + blockIdL2 * 8)
             ptr1 = struct.unpack("q", self.disk.read(8))[0]
             if ptr1 == 0:
                 ptr1 = self.disk.getDataBlockPtr(self.disk.allocBlock())
                 self.disk.seek(ptr2 + blockIdL2 * 8)
                 self.disk.write(struct.pack("q", ptr1))
-            blockIdL1 = (blockId - 10) % 256
+            blockIdL1 = (blockId - 11) % 256
             self.disk.seek(ptr1 + blockIdL1 * 8)
             ptr0 = struct.unpack("q", self.disk.read(8))[0]
             if ptr0 == 0:
@@ -250,7 +254,7 @@ class HbFile:
 
     # 释放文件的一个块，如果这个块是上一级的第一个块，则上一级所占的空间也会被释放
     def releaseIfUsed(self, blockId):
-        if blockId <= 9:
+        if blockId <= 10:
             ptr0 = self.inode.getDirBlockPtr(blockId)
             if ptr0 != 0:
                 self.disk.releaseBlock(self.disk.getDataBlockNum(ptr0))
@@ -258,14 +262,14 @@ class HbFile:
             return
 
         # 通过一级指针释放占用
-        if blockId <= 9 + 256:
+        if blockId <= 10 + 256:
             # 先找到一级指针块
             ptr1 = self.inode.getIndirectBlockPtr()
             # 如果一级指针块不存在就直接return
             if ptr1 == 0:
                 return
             # 计算是一级指针的第几个块
-            blockIdL1 = blockId - 10
+            blockIdL1 = blockId - 11
             # 获取一级指针指向的块地址
             self.disk.seek(ptr1 + blockIdL1 * 8)
             ptr0 = struct.unpack("q", self.disk.read(8))[0]
@@ -281,18 +285,18 @@ class HbFile:
                 self.inode.saveIndirectBlockPtr(0)
             return
 
-        if blockId <= 9 + 256 + 256 * 256:
+        if blockId <= 10 + 256 + 256 * 256:
             ptr2 = self.inode.getDoubleIndirectBlockPtr()
             if ptr2 == 0:
                 return
 
-            blockIdL2 = math.floor((blockId - 10 - 256) / 256)
+            blockIdL2 = math.floor((blockId - 11 - 256) / 256)
             self.disk.seek(ptr2 + blockIdL2 * 8)
             ptr1 = struct.unpack("q", self.disk.read(8))[0]
             if ptr1 == 0:
                 return
 
-            blockIdL1 = (blockId - 10) % 256
+            blockIdL1 = (blockId - 11) % 256
             self.disk.seek(ptr1 + blockIdL1 * 8)
             ptr0 = struct.unpack("q", self.disk.read(8))[0]
             if ptr0 == 0:
@@ -313,24 +317,24 @@ class HbFile:
 
             return
 
-        if blockId <= 9 + 256 + 256 * 256 + 256 * 256 * 256:
+        if blockId <= 10 + 256 + 256 * 256 + 256 * 256 * 256:
             ptr3 = self.inode.getThirdIndirectBlockPtr()
             if ptr3 == 0:
                 return
 
-            blockIdL3 = math.floor((blockId - 10 - 256 - 65536) / 65536)
+            blockIdL3 = math.floor((blockId - 11 - 256 - 65536) / 65536)
             self.disk.seek(ptr3 + blockIdL3 * 8)
             ptr2 = struct.unpack("q", self.disk.read(8))[0]
             if ptr2 == 0:
                 return
 
-            blockIdL2 = (blockId - 10 - 256) % 65536
+            blockIdL2 = (blockId - 11 - 256) % 65536
             self.disk.seek(ptr2 + blockIdL2 * 8)
             ptr1 = struct.unpack("q", self.disk.read(8))[0]
             if ptr1 == 0:
                 return
 
-            blockIdL1 = (blockId - 10) % 256
+            blockIdL1 = (blockId - 11) % 256
             self.disk.seek(ptr1 + blockIdL1 * 8)
             ptr0 = struct.unpack("q", self.disk.read(8))[0]
             if ptr0 == 0:
@@ -381,14 +385,16 @@ class HbFile:
         if self.nowBlockId == -1 or not ((self.nowBlockId >> 11) < self.nowPtr < ((self.nowBlockId + 1) >> 11)):
             newBid = self.nowPtr >> 11
             self.nowBlockStartPtr = self.getBlockStartPtrOrAlloc(newBid)
+            if self.nowBlockStartPtr < 0:
+                raise Exception()
             self.nowBlockId = newBid
 
     def read(self, readLength=0):
         result = bytes(0)
-        if readLength <= 0:
+        if readLength < 0:
             raise Exception("Read length should be greater than 0.")
         if readLength == 0:
-            readLength = self.inode.size
+            readLength = self.inode.size - self.nowPtr - 1
         readLength = min(self.inode.size - self.nowPtr - 1, readLength)
         while readLength > 0:
             self.loadBlockPtr()
@@ -417,24 +423,127 @@ class HbFile:
             self.nowPtr += writeLength
             writeStartIndex += writeLength
             lengthLeft -= writeLength
+        self.inode.save()
+
+class HbDirEntry:
+    def __init__(self, inodePtr: int, fileType: int, fileName: str):
+        self.fileName = fileName
+        self.fileType = fileType
+        self.inodePtr = inodePtr
 
 
 class HbFolder(HbFile):
     def __init__(self, disk: HbDisk, path: str, inode: INode):
         super().__init__(disk, path, inode)
+        self.fileList: list[HbDirEntry] = []
+        if self.getSize() == 0:
+            return
+        fileListBytes = self.read()
+        reader = io.BytesIO(fileListBytes)
+
+        while True:
+            aa = reader.read(8)
+            if len(aa) == 0:
+                return
+            inodePtr = struct.unpack("q", aa)[0]
+            fileType = reader.read(1)[0]
+            fileNameLength = reader.read(1)[0]
+            fileName = reader.read(fileNameLength).decode()
+            self.fileList.append(HbDirEntry(inodePtr, fileType, fileName))
+
+    def save(self):
+        ans = bytes(0)
+        for entry in self.fileList:
+            ans += struct.pack('q', entry.inodePtr)
+            ans += bytes([entry.fileType])
+            ans += bytes([len(entry.fileName)])
+            ans += bytes(entry.fileName, 'utf-8')
+        self.write(ans, True)
+
+    def findFileEntry(self, fileName: str):
+        for entry in self.fileList:
+            if entry.fileName == fileName:
+                return entry
+        return None
+
+    def createDir(self, dirName: str):
+        if self.findFileEntry(dirName) is not None:
+            raise Exception("File with that name already exists.")
+        inode = INode(self.disk, self.disk.allocINode(), isNew=True)
+        self.fileList.append(HbDirEntry(inode.ptr, 1, dirName))
+        self.save()
+
+    def createFile(self, fileName):
+        if self.findFileEntry(fileName) is not None:
+            raise Exception("File with that name already exists.")
+        inode = INode(self.disk, self.disk.allocINode(), isNew=True)
+        self.fileList.append(HbDirEntry(inode.ptr, 0, fileName))
+        self.save()
+
+    def renameSubFile(self, oldName, newName):
+        if len(newName) > 255:
+            raise Exception("New name should no longer than 255.")
+        entry = self.findFileEntry(oldName)
+        if entry is None:
+            raise Exception("File with old name not found.")
+        entry.fileName = newName
+        self.save()
+
+    def deleteSubFile(self, fileName, recursive=False):
+        entry = self.findFileEntry(fileName)
+        if entry is None:
+            raise Exception("File with that name not found.")
+        self.deleteEntry(entry, recursive)
+
+    def deleteEntry(self, entry, recursive):
+        if entry.fileName != 1:
+            file = HbFile(self.disk, "", INode(disk=self.disk, inodePtr=entry.inodePtr))
+            file.resize(0)
+        elif recursive:
+            folder = HbFolder(self.disk, "", INode(disk=self.disk, inodePtr=entry.inodePtr))
+            folder.deleteAllSubFile()
+            folder.resize(0)
+        else:
+            raise Exception("Folder cannot be deleted without recursive mode.")
+        self.disk.releaseINode(self.disk.getINodeNumber(entry.inodePtr))
+        self.fileList.remove(entry)
+
+    def getFile(self, fileName: str):
+        entry = self.findFileEntry(fileName)
+        if entry is None:
+            raise Exception("File with that name not found.")
+        if entry.fileType == 0:
+            return HbFile(self.disk, "", INode(disk=self.disk, inodePtr=entry.inodePtr))
+        elif entry.fileType == 1:
+            return HbFolder(self.disk, "", INode(disk=self.disk, inodePtr=entry.inodePtr))
+
+    def deleteAllSubFile(self):
+        for entry in self.fileList:
+            self.deleteEntry(entry, True)
 
 
 # 24block 8inode
 dk = HbDisk(500, 8)
 a = dk.allocINode()
-inode = INode(dk, a, 0, True)
-f = HbFile(dk, "", inode)
+myInode = INode(dk, a, isNew=True)
+# f = HbFile(dk, "", inode)
 data = randbytes(432000)
-data2 = randbytes(11450)
+# data2 = randbytes(11450)
+#
+# f.write(data)
+# f.write(data2)
+# f.seek(0)
+#
 
-f.write(data)
-f.write(data2)
-f.seek(0)
-data3 = f.read(432000 + 11450)
-print(hashlib.sha1(data + data2).hexdigest())
+
+root = HbFolder(dk, "", myInode)
+root.createFile("myFolder")
+root.createDir("test")
+a = root.getFile("test")
+b = root.getFile("myFolder")
+b.write(data)
+r2 = HbFolder(dk, "", myInode)
+c = r2.getFile("myFolder")
+data3 = c.read(432000)
+print(hashlib.sha1(data).hexdigest())
 print(hashlib.sha1(data3).hexdigest())

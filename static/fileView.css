@@ -1,0 +1,13 @@
+#fileHolder{
+    margin-top: 20px;
+    width: 100%;
+}
+
+#fileHolder>textarea{
+    width: 100%;
+    max-width: 100%;
+    height: 200px;
+    padding: 10px;
+    line-height: 20px;
+    font-size: 15px;
+}

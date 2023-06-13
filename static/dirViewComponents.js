@@ -56,13 +56,12 @@ function TimestampToDate(Timestamp) {
     return date1.toLocaleDateString().replace(/\//g, "-") + " " + date1.toTimeString().substr(0, 8);
 }
 class FileItem extends HTMLElement{
-    constructor(fileName,isDir,lastModifiedTimestamp,size,path,isHeader = false){
+    constructor(fileName,isDir,lastModifiedTimestamp,size,isHeader = false){
         super()
         this.fileName = fileName
         this.isDir = isDir
         this.lastModifiedTimestamp = lastModifiedTimestamp
         this.size = size
-        this.path = path
         this.isHeader = isHeader
     }
 
@@ -131,9 +130,6 @@ class FileItem extends HTMLElement{
 
         this.fileName = this.newNameInput.value
         this.fileNameDom.innerHTML = this.fileName
-        let a = this.path.split("/")
-        a[a.length-1] = this.fileName
-        this.path = a.join("/")
         this.classList.remove("editingName")
     }
 
@@ -149,13 +145,10 @@ class FileList extends HTMLElement{
     }
 
     connectedCallback(){
-        this.appendChild(new FileItem(0,0,0,0,0,true))
-        if(this.parentDir){
-            this.appendChild(new FileItem("...",1,0,0,this.parentDir))
-        }
+        this.appendChild(new FileItem(0,0,0,0,true))
 
         for(let file of this.fileList){
-            this.appendChild(new FileItem(file.name,file.isDir,file.lastModifiedTimeStamp,file.size,file.path))
+            this.appendChild(new FileItem(file.name,file.type===1,file.lastModifiedTimeStamp,file.size))
         }
     }
 

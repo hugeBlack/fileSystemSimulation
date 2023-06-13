@@ -1,32 +1,19 @@
 aa = document.getElementById("navBarHolder")
 
-d=  new DirBar(["aaa","sss","ddd","fff"])
-aa.appendChild(d)
+
 
 fw = document.getElementById("fileListHolder")
+fetch(
+    "/update_file_list"
 
-fileList = [
-    {
-        name : "file1",
-        isDir: false,
-        lastModifiedTimeStamp: 1145141919,
-        size: 9999999,
-        path: "/test/file1"
-    },
-    {
-        name : "dir1",
-        isDir: true,
-        lastModifiedTimeStamp: 1145141919,
-        size: 0,
-        path: "/test/dir1"
-    },
-    {
-        name : "file2",
-        isDir: false,
-        lastModifiedTimeStamp: 114514919,
-        size: 99999,
-        path: "/test/file1"
+).then( async response =>{
+    let f = await response.json()
+    console.log(f)
+    let d=  new DirBar(f.nowDir)
+    aa.appendChild(d)
+    fw.appendChild(new FileList(f.files,"/test"))
     }
-]
+    
+)
 
-fw.appendChild(new FileList(fileList,"/test"))
+

@@ -12,14 +12,24 @@ def toBytes(v: int):
 
 
 class HbDisk:
-    def __init__(self, dataBlockCount: int = 0, inodeCount: int = 0, fileSize: int = 0,
+    def __init__(self, dataBlockCount: int = 0, inodeCount: int = 0,
+                 diskName: str = "",
+                 fileSize: int = 0,
                  reader: io.BufferedIOBase = None):
         self.streamPtr = 0
-        if reader is not None:
-            self.diskSize = fileSize
-            self.dataBlockCount, self.inodeCount, self.dataBlockLeft, self.inodeLeft = struct.unpack("q",
-                                                                                                     self.read(32))
+        # 计算gdt表各参数位置
+        self.gdtPtr = 0
+        self.diskNameLenPtr = 32
+        self.diskNamePtr = self.diskNameLenPtr + 1
+        self.blockBitmapPtr = self.diskNamePtr + 255
 
+        if reader is not None:
+            self.file = reader
+            self.diskSize = fileSize
+            self.dataBlockCount, self.inodeCount, self.dataBlockLeft, self.inodeLeft = struct.unpack("qqqq",
+                                                                                                     self.read(32))
+            self.diskNameLength = self.read(1)[0]
+            self.diskName = self.read(self.diskNameLength).decode("utf-8")
         else:
             self.diskSize = 0
             self.dataBlockCount = dataBlockCount
@@ -32,15 +42,21 @@ class HbDisk:
             self.write(toBytes(inodeCount))
             self.write(toBytes(dataBlockCount))
             self.write(toBytes(inodeCount))
+            # 初始化磁盘名
+            encodedName = diskName.encode()
+            self.write(bytes([len(encodedName)]))
+            self.write(bytes(255))
+            self.seek(self.diskNamePtr)
+            self.write(encodedName)
+            self.diskName = diskName
+        self.seek(self.blockBitmapPtr)
         # 初始化Block bitmap
         blockBitMapLength = math.ceil(self.dataBlockCount / 8)
         self.write(bytes(blockBitMapLength))
         # 初始化Inode Bitmap
         iNodeBitMapLength = math.ceil(self.inodeCount / 8)
         self.write(bytes(iNodeBitMapLength))
-
-        self.gdtPtr = 0
-        self.blockBitmapPtr = 32
+        # 计算4个表的起始地址
         self.inodeBitmapPtr = self.blockBitmapPtr + math.ceil(self.dataBlockCount / 8)
         self.inodeTablePtr = self.inodeBitmapPtr + math.ceil(self.inodeCount / 8)
         self.dataTablePtr = self.inodeTablePtr + self.inodeCount * 128
@@ -95,6 +111,17 @@ class HbDisk:
 
     def getDataBlockNum(self, ptr: int):
         return (ptr - self.dataTablePtr) >> 11
+
+    def rename(self, newName: str):
+        encodedName = newName.encode()
+        if len(encodedName) > 255:
+            raise Exception("Disk name should be no longer than 255.")
+        self.diskNameLength = len(encodedName)
+        self.diskName = newName
+
+        self.seek(self.diskNameLenPtr)
+        self.write(bytes([self.diskNameLength]))
+        self.write(encodedName)
 
     def seek(self, ptr: int):
         self.streamPtr = ptr

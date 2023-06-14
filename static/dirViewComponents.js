@@ -1,7 +1,7 @@
 class DirItem extends HTMLElement{
-    constructor(lastDir,dir,isLast,isRoot = false){
+    constructor(lastDir,dirLevel,isLast,isRoot = false){
         super()
-        this.dirStr = dir
+        this.dirLevel = dirLevel
         this.isLast = isLast
         this.lastDir = lastDir
         this.isRoot = isRoot
@@ -12,6 +12,7 @@ class DirItem extends HTMLElement{
             this.contentDom = document.createElement("span")
         }else{
             this.contentDom = document.createElement("a")
+            this.contentDom.addEventListener("click",evt => this.goto())
         }
 
         if(this.isRoot){
@@ -21,8 +22,12 @@ class DirItem extends HTMLElement{
         }else{
             this.contentDom.innerHTML = this.lastDir
         }
-
         this.appendChild(this.contentDom)
+
+    }
+
+    goto(){
+        changeDirLevel(this.dirLevel)
     }
 
 }
@@ -36,12 +41,10 @@ class DirBar extends HTMLElement{
 
     connectedCallback(){
         let count = this.dirList.length
-        let nowPath = ""
-        let homeBtn = new DirItem("/", nowPath,false,true)
+        let homeBtn = new DirItem("", 0,false,true)
         this.appendChild(homeBtn)
         for(let i = 0;i<count;i++){
-            nowPath += ("/"+ this.dirList[i])
-            let a = new DirItem(this.dirList[i], nowPath,i===count-1)
+            let a = new DirItem(this.dirList[i], i + 1,i===count-1)
             this.appendChild(a)
         }
     }
@@ -86,8 +89,10 @@ class FileItem extends HTMLElement{
         if(this.isDir){
             this.querySelector(".fileIcon").classList.add("fas","fa-folder")
             this.querySelector(".downloadButton").remove()
+            this.fileNameDom.addEventListener("click",evt => this.gotoDir())
         }else{
             this.querySelector(".fileIcon").classList.add("fas","fa-file")
+            this.fileNameDom.addEventListener("click",evt => this.openFile())
             if(this.size > 1073741824){
                 this.fileSizeDom.innerHTML = (this.size/1073741824).toFixed(2) + "GiB"
             }else if (this.size > 1048576){
@@ -98,7 +103,7 @@ class FileItem extends HTMLElement{
                 this.fileSizeDom.innerHTML = this.size + "B"
             }
         }
-        if(this.fileName!=="..."){
+        if(this.fileName!==".." && this.fileName!=="."){
             this.querySelector(".fileLastModified").innerHTML = TimestampToDate(this.lastModifiedTimestamp)
         }else{
             this.querySelector(".deleteButton").remove()
@@ -110,6 +115,7 @@ class FileItem extends HTMLElement{
             this.newNameInput = this.querySelector(".newFileNameInput")
 
         }
+
         this.querySelector(".submitRenameBtn").addEventListener("click",evt => this.submitRename())
         this.querySelector(".cancelRenameBtn").addEventListener("click",evt => this.cancelRename())
 
@@ -127,10 +133,19 @@ class FileItem extends HTMLElement{
     }
 
     submitRename(){
-
+        let oldName = this.fileName
         this.fileName = this.newNameInput.value
         this.fileNameDom.innerHTML = this.fileName
         this.classList.remove("editingName")
+        renameFile(oldName, this.newNameInput.value)
+    }
+
+    gotoDir(){
+        appendDir(this.fileName)
+    }
+
+    openFile(){
+
     }
 
 
@@ -155,3 +170,83 @@ class FileList extends HTMLElement{
 
 }
 customElements.define('file-list', FileList);
+
+
+class DiskItem extends HTMLElement {
+    constructor(diskName, totalBlocks, blocksLeft, isHeader = false) {
+        super()
+        this.diskName = diskName
+        this.totalBlocks = totalBlocks
+        this.blocksLeft = blocksLeft
+        this.isHeader = isHeader
+    }
+
+    connectedCallback() {
+        let templateElem = document.getElementById("diskItemTemplate");
+        const templateContent = templateElem.content;
+        this.appendChild(templateContent.cloneNode(true));
+        if (this.isHeader) {
+            this.querySelector(".diskName").innerHTML = "空间名"
+            this.querySelector(".renameButton").remove()
+            return
+        }
+        this.diskNameDom = this.querySelector(".diskName")
+        this.diskVolInfoDom = this.querySelector(".diskVolInfo")
+        this.diskVolBarDom = this.querySelector(".diskVolBar")
+        this.querySelector(".fileIcon").classList.add("fas","fa-hdd")
+
+        this.diskNameDom.innerHTML = this.diskName
+        this.diskVolBarDom.style.width = (this.blocksLeft/this.totalBlocks*100).toFixed(1)+"%"
+        this.diskVolInfoDom.innerHTML = "500M/1G"
+
+        let rb = this.querySelector(".renameButton")
+        if (rb) {
+            rb.addEventListener("click", evt => this.startRename())
+            this.newNameInput = this.querySelector(".newFileNameInput")
+
+        }
+        this.diskNameDom.addEventListener("click",evt => this.gotoDisk())
+        this.querySelector(".submitRenameBtn").addEventListener("click", evt => this.submitRename())
+        this.querySelector(".cancelRenameBtn").addEventListener("click", evt => this.cancelRename())
+
+    }
+    startRename(){
+        this.classList.add("editingName")
+        this.newNameInput.value = this.diskName
+        this.newNameInput.select()
+
+    }
+
+    cancelRename(){
+        this.classList.remove("editingName")
+    }
+
+    submitRename(){
+        let oldName = this.diskName
+        this.diskName = this.newNameInput.value
+        this.diskNameDom.innerHTML = this.diskName
+        this.classList.remove("editingName")
+        renameFile(oldName, this.newNameInput.value)
+    }
+
+    gotoDisk(){
+        appendDir(this.diskName)
+    }
+}
+customElements.define('disk-item', DiskItem);
+
+class DiskList extends HTMLElement{
+    constructor(diskList){
+        super()
+        this.diskList = diskList
+    }
+
+    connectedCallback(){
+        this.appendChild(new DiskItem(0,0,0,true))
+
+        for(let file of this.diskList){
+            this.appendChild(new DiskItem(file.name,file.totalBlocks===1,file.blocksLeft))
+        }
+    }
+}
+customElements.define('disk-list', DiskList);

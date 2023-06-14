@@ -37,6 +37,25 @@
     <span class="fileSize"></span>
 </template>
 
+<template id="diskItemTemplate">
+    <i class="fileIcon"></i>
+    <span class="diskName"></span>
+    <span class="fileNameEditor">
+        <input class="newFileNameInput" />
+        <span class="submitRenameBtn"><i class="fas fa-check"></i></span>
+        <span class="cancelRenameBtn"><i class="fas fa-times"></i></span>
+    </span>
+    <div class="diskVol">
+        <div class="diskVolInfo"></div>
+        <div class="diskVolBar"></div>
+    </div>
+    <div class="controlButtons">
+        <div class="renameButton fileBtn"><i class="fas fa-i-cursor"></i></div>
+    </div>
+    <span class="fileLastModified"></span>
+    <span class="fileSize"></span>
+</template>
+
 <script src="/dirViewComponents.js"></script>
 <script src="/dirView.js"></script>
 </body>

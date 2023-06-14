@@ -4,6 +4,7 @@ import math
 from flask import Flask, request, send_file, jsonify
 import os
 from manager import StorageManager
+import time
 
 app = Flask(__name__, static_url_path="")
 
@@ -17,30 +18,31 @@ def download_file(filename):
         return f'File {filename}.zip not found', 404
 
 
-@app.route('/gotoDir', methods=['POST'])
+@app.route('/goto', methods=['POST'])
 def goto_directory():
     data = request.get_json()
     directory = data.get('directory')
-    if directory:
-        os.chdir(directory)
-        return f'Changed current directory to {directory}'
-    else:
-        return 'No directory provided', 400
+    try:
+        if len(directory) == 0:
+            storageMgr.clearDisk()
+        else:
+            storageMgr.switchDisk(directory[0])
+            storageMgr.switchDir(directory[1:])
+        return get_files()
+    except Exception as e:
+        return genResponse("", False, e.args[0])
 
 
 @app.route('/rename', methods=['POST'])
 def rename_file():
     data = request.get_json()
-    old_name = data.get('old_name')
-    new_name = data.get('new_name')
-    if old_name and new_name:
-        try:
-            os.rename(old_name, new_name)
-            return f'Renamed file {old_name} to {new_name}'
-        except OSError as e:
-            return f'Failed to rename file: {str(e)}', 500
-    else:
-        return 'Invalid request data', 400
+    oldName = data.get('oldName')
+    newName = data.get('newName')
+    try:
+        storageMgr.renameFile(oldName, newName)
+        return get_files()
+    except Exception as e:
+        return genResponse("", False, e.args[0])
 
 
 @app.route('/remove', methods=['POST'])
@@ -61,26 +63,50 @@ def remove_file():
 @app.route('/create_disk', methods=['POST'])
 def create_disk():
     data = request.get_json()
-    size: float = data.get("size")  # 磁盘大小多少M
-    dataBlockCount = math.ceil(size * 64) * 8
-    inodeCount = math.ceil(size * 4) * 8
-    storageMgr.createDisk(dataBlockCount, inodeCount, data.get("diskName"))
-    ans = storageMgr.getDiskReport()
-    return genResponse(ans)
+    try:
+        size: float = data.get("size")  # 磁盘大小多少M
+        dataBlockCount = math.ceil(size * 64) * 8
+        inodeCount = math.ceil(size * 4) * 8
+        storageMgr.createDisk(dataBlockCount, inodeCount, data.get("diskName"))
+        return get_files()
+    except Exception as e:
+        return genResponse("", False, e.args[0])
 
 
-@app.route('/disk_report')
-def disk_report():
-    data = storageMgr.getDiskReport()
-    return genResponse(data)
+@app.route('/create_file', methods=['POST'])
+def create_file():
+    data = request.get_json()
+    try:
+        fileName: str = data.get("fileName")
+        storageMgr.createFile(fileName)
+        return get_files()
+    except Exception as e:
+        return genResponse("", False, e.args[0])
 
+
+@app.route('/create_folder', methods=['POST'])
+def create_folder():
+    data = request.get_json()
+    try:
+        fileName: str = data.get("folderName")
+        storageMgr.createFolder(fileName)
+        return get_files()
+    except Exception as e:
+        return genResponse("", False, e.args[0])
 
 @app.route('/update_file_list')
 def get_files():
-    data = {
-        "nowDir": storageMgr.getDir(),
-        "files": storageMgr.getFileList()
-    }
+    dirs = storageMgr.getDir()
+    if len(dirs) > 0:
+        data = {
+            "nowDir": dirs,
+            "files": storageMgr.getFileList()
+        }
+    else:
+        data = {
+            "nowDir": dirs,
+            "disks": storageMgr.getDiskReport()
+        }
     return genResponse(data)
 
 

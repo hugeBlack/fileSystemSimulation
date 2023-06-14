@@ -4,28 +4,19 @@ from hbdisk import HbDisk, HbFile, HbFolder, HbDirEntry, INode
 class DiskManager:
     def __init__(self, disk: HbDisk):
         self.disk = disk
-        self.dirList = []
         self.rootFolder = HbFolder(self.disk, "", self.disk.rootInode)
-        self.gotoDir("/")
+        self.dirList = [self.rootFolder]
+        self.dirNameList = []
 
-    def gotoDir(self, path: str):
-        if path[-1] == "/":
-            path = path[:-1]
-        dirs = path.split("/")
+    def gotoDir(self, dirs):
+        newDirList = [self.rootFolder]
         for i, dirName in enumerate(dirs):
-            if i == 0:
-                if dirName != '':
-                    raise Exception("Path should start with /")
-                else:
-                    self.dirList = [self.rootFolder]
-            else:
-                if dirName == '':
-                    raise Exception("Folder should have name.")
-                else:
-                    f = self.dirList[-1].getFile(dirName)
-                    if type(f) != HbFolder:
-                        raise Exception("Path contain file.")
-                    self.dirList.append(f)
+            nowFolder = newDirList[-1].getFile(dirName)
+            if type(nowFolder) != HbFolder:
+                raise Exception("Path contain file.")
+            newDirList.append(nowFolder)
+        self.dirList = newDirList
+        self.dirNameList = dirs
 
     def getFile(self, fileName: str) -> HbFile:
         return self.dirList[-1].getFile(fileName)
@@ -52,6 +43,8 @@ class StorageManager:
         self.nowDisk: DiskManager = None
 
     def switchDisk(self, diskName):
+        if self.nowDisk is not None and self.nowDisk.disk.diskName == diskName:
+            return
         for disk in self.disks:
             if disk.disk.diskName == diskName:
                 self.nowDisk = disk
@@ -65,8 +58,11 @@ class StorageManager:
         if self.nowDisk is None:
             return []
         ans = [self.nowDisk.disk.diskName]
-        ans += self.nowDisk.dirList
+        ans += self.nowDisk.dirNameList
         return ans
+
+    def switchDir(self, dirList):
+        self.nowDisk.gotoDir(dirList)
 
     def getDiskReport(self):
         ans = []
@@ -74,11 +70,14 @@ class StorageManager:
             ans.append({
                 "name": disk.disk.diskName,
                 "totalBlocks": disk.disk.dataBlockCount,
-                "usedBlocks": disk.disk.dataBlockLeft
+                "blocksLeft": disk.disk.dataBlockLeft
             })
         return ans
 
     def createDisk(self, dataBlockCount, inodeCount, diskName):
+        for disk in self.disks:
+            if disk.disk.diskName == diskName:
+                raise Exception("Disk with that name already exists.")
         newDisk = HbDisk(dataBlockCount, inodeCount, diskName)
         newDm = DiskManager(newDisk)
         self.disks.append(newDm)
@@ -100,6 +99,12 @@ class StorageManager:
         self.nowDisk.deleteFile(folderName, True)
 
     def renameFile(self, oldName, newName):
+        if self.nowDisk is None:
+            for disk in self.disks:
+                if disk.disk.diskName == oldName:
+                    disk.disk.rename(newName)
+                    return
+            raise Exception("Disk with that name does not exist.")
         self.nowDisk.rename(oldName, newName)
 
     def getFileList(self):
@@ -115,7 +120,7 @@ class StorageManager:
                 "size": inode.size,
                 "lastModifiedTimeStamp": inode.lastModifyTimeStamp
             })
-            return ans
+        return ans
 
 
 if __name__ == "__main__":

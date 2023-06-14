@@ -21,7 +21,6 @@ class HbDisk:
         self.gdtPtr = 0
         self.diskNameLenPtr = 32
         self.diskNamePtr = self.diskNameLenPtr + 1
-        self.blockBitmapPtr = self.diskNamePtr + 255
 
         if reader is not None:
             self.file = reader
@@ -49,6 +48,7 @@ class HbDisk:
             self.seek(self.diskNamePtr)
             self.write(encodedName)
             self.diskName = diskName
+        self.blockBitmapPtr = self.diskNamePtr + 255
         self.seek(self.blockBitmapPtr)
         # 初始化Block bitmap
         blockBitMapLength = math.ceil(self.dataBlockCount / 8)
@@ -126,6 +126,7 @@ class HbDisk:
     def seek(self, ptr: int):
         self.streamPtr = ptr
         if self.diskSize <= ptr:
+            self.file.seek(self.diskSize-1)  # 指针移动到文件尾部！
             self.file.write(bytes(ptr - self.diskSize + 1))
             self.diskSize = ptr + 1
         self.file.seek(ptr)

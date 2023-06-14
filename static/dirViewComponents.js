@@ -58,6 +58,22 @@ function TimestampToDate(Timestamp) {
     let date1 = new Date(Timestamp);
     return date1.toLocaleDateString().replace(/\//g, "-") + " " + date1.toTimeString().substr(0, 8);
 }
+
+//将字节数转换为合适的单位
+function genSizeStr(size){
+    let ans
+    if(size > 1073741824){
+        ans = (size/1073741824).toFixed(2) + "GiB"
+    }else if (size > 1048576){
+        ans = (size/1048576).toFixed(2) + "MiB"
+    }else if (size > 1024){
+        ans = (size/1024).toFixed(2) + "KiB"
+    }else{
+        ans = size + "B"
+    }
+    return ans
+}
+
 class FileItem extends HTMLElement{
     constructor(fileName,isDir,lastModifiedTimestamp,size,isHeader = false){
         super()
@@ -76,7 +92,6 @@ class FileItem extends HTMLElement{
             this.querySelector(".fileName").innerHTML = "文件名"
             this.querySelector(".fileSize").innerHTML = "文件大小"
             this.querySelector(".fileLastModified").innerHTML = "上次修改"
-            this.querySelector(".downloadButton").remove()
             this.querySelector(".deleteButton").remove()
             this.querySelector(".renameButton").remove()
             return
@@ -88,20 +103,11 @@ class FileItem extends HTMLElement{
         this.fileNameDom.innerHTML = this.fileName
         if(this.isDir){
             this.querySelector(".fileIcon").classList.add("fas","fa-folder")
-            this.querySelector(".downloadButton").remove()
             this.fileNameDom.addEventListener("click",evt => this.gotoDir())
         }else{
             this.querySelector(".fileIcon").classList.add("fas","fa-file")
-            this.fileNameDom.addEventListener("click",evt => this.openFile())
-            if(this.size > 1073741824){
-                this.fileSizeDom.innerHTML = (this.size/1073741824).toFixed(2) + "GiB"
-            }else if (this.size > 1048576){
-                this.fileSizeDom.innerHTML = (this.size/1048576).toFixed(2) + "MiB"
-            }else if (this.size > 1024){
-                this.fileSizeDom.innerHTML = (this.size/1024).toFixed(2) + "KiB"
-            }else{
-                this.fileSizeDom.innerHTML = this.size + "B"
-            }
+            this.fileNameDom.addEventListener("click",evt => this.openMe())
+            this.fileSizeDom.innerHTML = genSizeStr(this.size)
         }
         if(this.fileName!==".." && this.fileName!=="."){
             this.querySelector(".fileLastModified").innerHTML = TimestampToDate(this.lastModifiedTimestamp)
@@ -114,6 +120,11 @@ class FileItem extends HTMLElement{
             rb.addEventListener("click", evt => this.startRename())
             this.newNameInput = this.querySelector(".newFileNameInput")
 
+        }
+
+        let db = this.querySelector(".deleteButton")
+        if(db){
+            db.addEventListener("click", evt => this.deleteMe())
         }
 
         this.querySelector(".submitRenameBtn").addEventListener("click",evt => this.submitRename())
@@ -134,8 +145,6 @@ class FileItem extends HTMLElement{
 
     submitRename(){
         let oldName = this.fileName
-        this.fileName = this.newNameInput.value
-        this.fileNameDom.innerHTML = this.fileName
         this.classList.remove("editingName")
         renameFile(oldName, this.newNameInput.value)
     }
@@ -144,8 +153,12 @@ class FileItem extends HTMLElement{
         appendDir(this.fileName)
     }
 
-    openFile(){
+    openMe(){
+        openFile(this.fileName)
+    }
 
+    deleteMe(){
+        deleteFile(this.fileName, this.isDir?1:0)
     }
 
 
@@ -196,8 +209,9 @@ class DiskItem extends HTMLElement {
         this.querySelector(".fileIcon").classList.add("fas","fa-hdd")
 
         this.diskNameDom.innerHTML = this.diskName
-        this.diskVolBarDom.style.width = (this.blocksLeft/this.totalBlocks*100).toFixed(1)+"%"
-        this.diskVolInfoDom.innerHTML = "500M/1G"
+        this.diskVolBarDom.style.width = (100-(this.blocksLeft/this.totalBlocks*100).toFixed(1))+"%"
+
+        this.diskVolInfoDom.innerHTML = genSizeStr((this.totalBlocks-this.blocksLeft)*2048)+"/"+genSizeStr(this.totalBlocks*2048)
 
         let rb = this.querySelector(".renameButton")
         if (rb) {
@@ -223,8 +237,6 @@ class DiskItem extends HTMLElement {
 
     submitRename(){
         let oldName = this.diskName
-        this.diskName = this.newNameInput.value
-        this.diskNameDom.innerHTML = this.diskName
         this.classList.remove("editingName")
         renameFile(oldName, this.newNameInput.value)
     }
@@ -245,7 +257,7 @@ class DiskList extends HTMLElement{
         this.appendChild(new DiskItem(0,0,0,true))
 
         for(let file of this.diskList){
-            this.appendChild(new DiskItem(file.name,file.totalBlocks===1,file.blocksLeft))
+            this.appendChild(new DiskItem(file.name,file.totalBlocks,file.blocksLeft))
         }
     }
 }

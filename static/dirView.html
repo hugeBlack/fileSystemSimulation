@@ -9,16 +9,27 @@
 <body>
 
 <div id="contentWrapper">
-    <h1>文件管理系统模拟</h1>
+    <h1>文件系统管理项目</h1>
     <div id="controlBar">
-        <button id="createDirBtn">新建文件夹</button>
-        <button id="createFileBtn">新建文本文件</button>
-        <button id="uploadFileBtn">上传文件</button>
+        <span id="folderControls">
+            <button id="createDirBtn" class="controlButton" onclick="createFolder()"><i class="fas fa-folder-plus"></i>新建文件夹</button>
+            <button id="createFileBtn" class="controlButton" onclick="createFile()"><i class="fas fa-file-plus"></i>新建文本文件</button>
+            <label for="file2222" id="uploadFileBtn" class="controlButton"><i class="fas fa-upload"></i>上传文件</label>
+        </span>
+        <span id="diskControls">
+            <button id="createDisk" class="controlButton" onclick="createDisk()"><i class="fas fa-plus"></i>新建并格式化空间</button>
+        </span>
+        <span id="powerControls">
+            <button id="powerOffBtn" class="controlButton" onclick="powerOff()"><i class="fas fa-power-off"></i>退出并保存到磁盘</button>
+        </span>
     </div>
     <div id="navBarHolder"></div>
     <div id="fileListHolder"></div>
 </div>
 
+<form id="fileUploadForm" method=post enctype=multipart/form-data>
+    <input type="file" name="file" id="file2222" onchange="uploadFile()" required />
+</form>
 
 <template id="fileItemTemplate">
     <i class="fileIcon"></i>
@@ -29,7 +40,6 @@
         <span class="cancelRenameBtn"><i class="fas fa-times"></i></span>
     </span>
     <div class="controlButtons">
-        <div class="downloadButton fileBtn"><i class="fas fa-arrow-to-bottom"></i></div>
         <div class="renameButton fileBtn"><i class="fas fa-i-cursor"></i></div>
         <div class="deleteButton fileBtn"><i class="fas fa-trash-alt"></i></div>
     </div>
@@ -45,12 +55,12 @@
         <span class="submitRenameBtn"><i class="fas fa-check"></i></span>
         <span class="cancelRenameBtn"><i class="fas fa-times"></i></span>
     </span>
-    <div class="diskVol">
-        <div class="diskVolInfo"></div>
-        <div class="diskVolBar"></div>
-    </div>
     <div class="controlButtons">
         <div class="renameButton fileBtn"><i class="fas fa-i-cursor"></i></div>
+    </div>
+    <div class="diskVol">
+        <div class="diskVolBar"></div>
+        <div class="diskVolInfo"></div>
     </div>
     <span class="fileLastModified"></span>
     <span class="fileSize"></span>

@@ -1,3 +1,5 @@
+import os
+
 from hbdisk import HbDisk, HbFile, HbFolder, HbDirEntry, INode
 
 
@@ -18,8 +20,15 @@ class DiskManager:
         self.dirList = newDirList
         self.dirNameList = dirs
 
-    def getFile(self, fileName: str) -> HbFile:
-        return self.dirList[-1].getFile(fileName)
+    # 返回这个文件以及其之前所有文件夹的对象
+    def getFileAndFullPath(self, fileName: str) -> list[HbFile]:
+        ans = self.dirList.copy()
+        ans.append(ans[-1].getFile(fileName))
+        return ans
+
+    # 检测当前目录下有没有这个文件，没有就抛异常
+    def checkFileExist(self, fileName: str):
+        self.dirList[-1].findFileEntry(fileName)
 
     def createFile(self, fileName: str):
         return self.dirList[-1].createFile(fileName)
@@ -37,10 +46,18 @@ class DiskManager:
         return self.dirList[-1].fileList
 
 
+class FileOpenCounter:
+    def __init__(self, file: HbFile, isLeaf=False):
+        self.file = file
+        self.counter = 1
+        self.isLeaf = isLeaf
+
+
 class StorageManager:
     def __init__(self, diskMgrList: list[DiskManager] = []):
         self.disks = diskMgrList
         self.nowDisk: DiskManager = None
+        self.openedFile = {}
 
     def switchDisk(self, diskName):
         if self.nowDisk is not None and self.nowDisk.disk.diskName == diskName:
@@ -54,7 +71,7 @@ class StorageManager:
     def clearDisk(self):
         self.nowDisk = None
 
-    def getDir(self):
+    def getDir(self) -> list[str]:
         if self.nowDisk is None:
             return []
         ans = [self.nowDisk.disk.diskName]
@@ -90,15 +107,19 @@ class StorageManager:
     def createFile(self, fileName: str):
         if self.nowDisk is None:
             raise Exception("You have to open a disk first")
-        self.nowDisk.createFile(fileName)
+        return self.nowDisk.createFile(fileName)
 
     def deleteFile(self, fileName):
+        if self.checkFileOpen(fileName) is not None:
+            raise Exception("You can't delete an opened file or folder. Close it first.")
         self.nowDisk.deleteFile(fileName)
 
     def deleteFolder(self, folderName):
         self.nowDisk.deleteFile(folderName, True)
 
     def renameFile(self, oldName, newName):
+        if self.checkFileOpen(oldName) is not None:
+            raise Exception("You can't rename an opened file or folder. Close it first.")
         if self.nowDisk is None:
             for disk in self.disks:
                 if disk.disk.diskName == oldName:
@@ -121,6 +142,74 @@ class StorageManager:
                 "lastModifiedTimeStamp": inode.lastModifyTimeStamp
             })
         return ans
+
+    def checkFileOpen(self, fileName):
+        filePath = '/'.join(self.getDir() + [fileName])
+        if filePath in self.openedFile:
+            return filePath
+        return None
+
+    def openFile(self, fileName):
+        self.nowDisk.checkFileExist(fileName)
+        fullDir = self.getDir()
+        fullDir.append(fileName)
+        fullDirObj = self.nowDisk.getFileAndFullPath(fileName)
+        # 把这个文件及其上级的所有文件的占用数都+1
+        ans = '/'.join(fullDir)
+        fullDirLenMinusOne = len(fullDir) - 1
+        for i in range(fullDirLenMinusOne, -1, -1):
+            filePath = '/'.join(fullDir[:i + 1])
+            if filePath not in self.openedFile:
+                file = fullDirObj[i]
+                self.openedFile[filePath] = FileOpenCounter(file, i == 0)
+            else:
+                if i == fullDirLenMinusOne:
+                    return
+                self.openedFile[filePath].counter += 1
+        return ans
+
+    def closeFile(self, filePath: str):
+        if filePath not in self.openedFile or self.openedFile[filePath].isLeaf:
+            raise Exception("File is not opened!")
+        dirList = filePath.split('/')
+        for i in range(0, len(dirList)):
+            filePath = '/'.join(dirList[:i + 1])
+            if filePath not in self.openedFile:
+                raise Exception("Parent dir not in openedList, this should not happen!")
+            else:
+                self.openedFile[filePath].counter -= 1
+                if self.openedFile[filePath].counter == 0:
+                    self.openedFile.pop(filePath)
+
+    def readAll(self, filePath):
+        if filePath not in self.openedFile:
+            raise Exception("File not opened. Open it in dirView first.")
+        file: HbFile = self.openedFile[filePath].file
+        file.seek(0)
+        content = file.read().decode("utf-8")
+        return content
+
+    def writeFromStart(self, filePath, content):
+        if filePath not in self.openedFile:
+            raise Exception("File not opened. Open it in dirView first.")
+        file: HbFile = self.openedFile[filePath].file
+        file.write(content.encode(), True)
+
+    def uploadNewFile(self, stream, fileName):
+        file = self.createFile(fileName)
+        file.write(stream.read(), True)
+
+    def downloadFile(self, filePath):
+        if filePath not in self.openedFile or self.openedFile[filePath].isLeaf:
+            raise Exception("File not opened. Open it in dirView first.")
+        file = self.openedFile[filePath].file
+        file.seek(0)
+        return file
+
+    def powerOff(self):
+        for disk in self.disks:
+            disk.disk.saveToDisk()
+        os._exit(0)
 
 
 if __name__ == "__main__":

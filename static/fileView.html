@@ -9,18 +9,25 @@
 </head>
 <body>
 <div id="contentWrapper">
-    <h1>文件管理系统模拟</h1>
-    <p>文件路径：/dir/test.txt</p>
+    <h1>文件系统管理项目</h1>
     <div id="controlBar">
-        <button id="returnToDir">返回目录</button>
-        <button id="createDirBtn">下载</button>
-        <button id="createFileBtn">打开</button>
-        <button id="uploadFileBtn">保存</button>
+        <p><span>文件路径：/</span><span id="filePath"></span></p>
+        <button id="createDirBtn" class="controlButton" onclick="download()"><i class="fas fa-download"></i>下载</button>
+        <button id="readAsTextBtn" class="controlButton" onclick="readFile()"><i class="fas fa-book-reader"></i>以文本方式读取</button>
+        <button id="returnToDir" class="controlButton" onclick="closeFile()"><i class="fas fa-times"></i>关闭</button>
+    </div>
 
+    <div id="textFileViewer">
+        <div id="openedFileControlButtons">
+            <button id="uploadFileBtn" class="controlButton" onclick="writeFile()"><i class="fas fa-save"></i>保存</button>
+        </div>
+        <div id="fileHolder">
+            <textarea></textarea>
+        </div>
     </div>
-    <div id="fileHolder">
-        <textarea></textarea>
-    </div>
+
+
+    <script src="fileView.js"></script>
 </div>
 </body>
 </html>

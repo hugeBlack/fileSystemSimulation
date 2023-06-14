@@ -2,6 +2,8 @@ import io
 import struct
 import math
 import hashlib
+from typing import BinaryIO
+
 from helpers import BitMapHelper
 import time
 from random import randbytes
@@ -15,14 +17,16 @@ class HbDisk:
     def __init__(self, dataBlockCount: int = 0, inodeCount: int = 0,
                  diskName: str = "",
                  fileSize: int = 0,
-                 reader: io.BufferedIOBase = None):
+                 reader: BinaryIO = None):
         self.streamPtr = 0
         # 计算gdt表各参数位置
         self.gdtPtr = 0
         self.diskNameLenPtr = 32
         self.diskNamePtr = self.diskNameLenPtr + 1
+        self.hasDiskFile = False
 
         if reader is not None:
+            self.hasDiskFile = True
             self.file = reader
             self.diskSize = fileSize
             self.dataBlockCount, self.inodeCount, self.dataBlockLeft, self.inodeLeft = struct.unpack("qqqq",
@@ -77,6 +81,7 @@ class HbDisk:
         ptr = self.getINodePtr(i)
         self.seek(ptr)
         self.write(bytes(128))
+        self.saveDGT()
         return i
 
     def allocBlock(self):
@@ -87,6 +92,7 @@ class HbDisk:
         ptr = self.getDataBlockPtr(i)
         self.seek(ptr)
         self.write(bytes(2048))
+        self.saveDGT()
         return i
 
     def releaseBlock(self, blockId):
@@ -112,10 +118,21 @@ class HbDisk:
     def getDataBlockNum(self, ptr: int):
         return (ptr - self.dataTablePtr) >> 11
 
+    def saveDGT(self):
+        self.seek(0)
+        self.write(toBytes(self.dataBlockCount))
+        self.write(toBytes(self.inodeCount))
+        self.write(toBytes(self.dataBlockLeft))
+        self.write(toBytes(self.inodeLeft))
+
     def rename(self, newName: str):
         encodedName = newName.encode()
         if len(encodedName) > 255:
             raise Exception("Disk name should be no longer than 255.")
+        if len(encodedName) == 0:
+            raise Exception("Disk name should be longer then 0 char.")
+        if newName.find('/') > 0:
+            raise Exception("Disk name should not contain '/'.")
         self.diskNameLength = len(encodedName)
         self.diskName = newName
 
@@ -123,10 +140,18 @@ class HbDisk:
         self.write(bytes([self.diskNameLength]))
         self.write(encodedName)
 
+    def saveToDisk(self):
+        if self.hasDiskFile:
+            self.file.close()
+            return
+        realFile = open(self.diskName + ".hbdk", "xb")
+        self.file.seek(0)
+        realFile.write(self.file.read())
+
     def seek(self, ptr: int):
         self.streamPtr = ptr
         if self.diskSize <= ptr:
-            self.file.seek(self.diskSize-1)  # 指针移动到文件尾部！
+            self.file.seek(self.diskSize - 1)  # 指针移动到文件尾部！
             self.file.write(bytes(ptr - self.diskSize + 1))
             self.diskSize = ptr + 1
         self.file.seek(ptr)
@@ -396,10 +421,12 @@ class HbFile:
             for i in range(nowBlockCount, math.ceil(newSize / 2048)):
                 self.getBlockStartPtrOrAlloc(i)
                 self.inode.size += 2048
+                self.inode.save()
         elif newSize <= nowBlockCount * 2048 - 2048:
             for i in range(nowBlockCount - 1, math.ceil(newSize / 2048) - 1, -1):
                 self.releaseIfUsed(i)
                 self.inode.size -= 2048
+                self.inode.save()
         self.inode.size = newSize
 
     def getSize(self):
@@ -408,8 +435,8 @@ class HbFile:
     def seek(self, ptr: int):
         if ptr < 0:
             raise Exception("Pointer of a file should be greater than 0.")
-        if ptr >= self.inode.size:
-            self.resize(ptr + 1)
+        if ptr > self.inode.size:
+            self.resize(ptr)
         self.nowPtr = ptr
 
     def loadBlockPtr(self):
@@ -489,8 +516,9 @@ class HbFolder(HbFile):
         for entry in self.fileList:
             ans += struct.pack('q', entry.inodePtr)
             ans += bytes([entry.fileType])
-            ans += bytes([len(entry.fileName)])
-            ans += bytes(entry.fileName, 'utf-8')
+            fileNameBytes = entry.fileName.encode()
+            ans += bytes([len(fileNameBytes)])
+            ans += fileNameBytes
         self.write(ans, True)
 
     def findFileEntry(self, fileName: str):
@@ -514,6 +542,12 @@ class HbFolder(HbFile):
     def createFile(self, fileName):
         if self.findFileEntry(fileName) is not None:
             raise Exception("File with that name already exists.")
+        if len(fileName) > 255:
+            raise Exception("New name should be no longer than 255.")
+        if len(fileName) == 0:
+            raise Exception("New name should longer then 0 char.")
+        if fileName.find('/') > 0:
+            raise Exception("File name should not contain '/'.")
         inode = INode(self.disk, self.disk.allocINode(), isNew=True)
         self.fileList.append(HbDirEntry(inode.ptr, 0, fileName))
         self.save()
@@ -522,6 +556,10 @@ class HbFolder(HbFile):
     def renameSubFile(self, oldName, newName):
         if len(newName) > 255:
             raise Exception("New name should no longer than 255.")
+        if len(newName) == 0:
+            raise Exception("New name should be longer then 0 char.")
+        if newName.find('/') > 0:
+            raise Exception("File name should not contain '/'.")
         entry = self.findFileEntry(oldName)
         if entry is None:
             raise Exception("File with old name not found.")

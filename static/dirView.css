@@ -102,13 +102,14 @@ file-list{
 }
 
 file-item, disk-item{
-    display: block;
+    display: flex;
     width: 100%;
     height: 25px;
     padding-bottom: 10px;
     padding-top: 10px;
     border-bottom: 1px #ddd solid;
     transition: 0.5s ease all;
+    align-items: center;
 }
 
 file-item:nth-child(n+2):hover, disk-item:nth-child(n+2):hover{
@@ -166,21 +167,80 @@ file-item.editingName>.fileName, disk-item.editingName>.diskName{
     width: 100%;
 }
 
-#controlBar{
-    width: 100%;
-}
-
 disk-list>disk-item:first-child>.diskVol{
     visibility: hidden;
 }
 
 .diskVol{
     display: inline-block;
-    width: 100px;
-    height: 15px;
-    font-size: 12px;
-    color: black;
+    width: 200px;
+    height: 16px;
     text-align: center;
-    border: 1px dodgerblue solid;
+    border: 1px #1eacff solid;
     margin-right: 20px;
+    position: relative;
+}
+
+.diskVolBar{
+    position: absolute;
+    height: 100%;
+    background-color: #1eacff;
+}
+.diskVolInfo{
+    position: absolute;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    font-size: 10px;
+}
+
+#controlBar.diskMode>#folderControls{
+    display: none;
+}
+
+#controlBar>#diskControls{
+    display: none;
+}
+
+#controlBar.diskMode>#diskControls{
+    display: inline-block;
+}
+
+#controlBar{
+    width: 100%;
+    position: relative;
+}
+
+.controlButton {
+    height: 45px;
+    width: 150px;
+    text-align: center;
+    line-height: 45px;
+    user-select:none;
+    background-color: #f8f9fa;
+    border-radius: 10px;
+    border: 1px solid #c0c0c0;
+    transition: 0.5s;
+    cursor: pointer;
+    margin-right: 10px;
+    font-size: 13px;
+    display: inline-block;
+}
+
+.controlButton > i{
+    margin-right: 10px;
+}
+
+.controlButton:hover {
+    background-color: #ddd;
+    transform: translateY(-2px);
+}
+
+#fileUploadForm{
+    display: none;
+}
+
+#powerControls{
+    position: absolute;
+    right: 0;
 }

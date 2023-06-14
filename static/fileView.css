@@ -6,8 +6,27 @@
 #fileHolder>textarea{
     width: 100%;
     max-width: 100%;
-    height: 200px;
+    height: 500px;
     padding: 10px;
     line-height: 20px;
     font-size: 15px;
+}
+
+#textFileViewer{
+    margin-top: 20px;
+    display: none;
+    width: 100%;
+}
+
+#textFileViewer.opened{
+    display: block;
+}
+
+#openedFileControlButtons{
+    text-align: center;
+    width: 100%;
+}
+
+#controlBar{
+    text-align: center;
 }

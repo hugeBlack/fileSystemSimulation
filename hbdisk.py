@@ -197,6 +197,7 @@ class INode:
     def save(self):
         self.disk.seek(self.ptr)
         self.disk.write(struct.pack("q", self.size))
+        self.lastModifyTimeStamp = math.floor(time.time() * 1000)
         self.disk.write(struct.pack("q", self.lastModifyTimeStamp))
 
     def getDirBlockPtr(self, dirBlockIndex: int):
@@ -424,6 +425,8 @@ class HbFile:
     def resize(self, newSize: int):
         nowBlockCount = math.ceil(self.inode.size / 2048)
         if newSize >= nowBlockCount * 2048:
+            if math.ceil(newSize / 2048) - nowBlockCount > self.disk.dataBlockLeft:
+                raise Exception("剩余空间不足！")
             for i in range(nowBlockCount, math.ceil(newSize / 2048)):
                 self.getBlockStartPtrOrAlloc(i)
                 self.inode.size += 2048

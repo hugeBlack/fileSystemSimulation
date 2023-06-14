@@ -173,10 +173,10 @@ def write_from_start():
 @app.route("/upload", methods=['POST'])
 def upload():
     if 'file' not in request.files:
-        return genResponse("", False, "No file uploaded!")
+        return genResponse("", False, "没有文件被上传!")
     file = request.files['file']
     if file.filename == '':
-        return genResponse("", False, "No file uploaded!")
+        return genResponse("", False, "文件名不得为空!")
     try:
         storageMgr.uploadNewFile(file.stream, file.filename)
         return get_files()

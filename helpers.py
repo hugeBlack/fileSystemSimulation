@@ -109,11 +109,3 @@ class BitMapHelper:
         bitMask = 128 >> (index % 8)
         return byte & bitMask == 0
 
-
-if __name__ == "__main__":
-    a = b'\xff\xff\xff\xff\xff'
-    bio = io.BytesIO(a)
-
-    bh = BitMapHelper(bio, 0, 5)
-    bh.setZero(20)
-    print(bh.allocZero())

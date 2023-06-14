@@ -15,7 +15,7 @@ class DiskManager:
         for i, dirName in enumerate(dirs):
             nowFolder = newDirList[-1].getFile(dirName)
             if type(nowFolder) != HbFolder:
-                raise Exception("Path contain file.")
+                raise Exception("地址包含文件。")
             newDirList.append(nowFolder)
         self.dirList = newDirList
         self.dirNameList = dirs
@@ -66,7 +66,7 @@ class StorageManager:
             if disk.disk.diskName == diskName:
                 self.nowDisk = disk
                 return
-        raise Exception("Disk with that name not found.")
+        raise Exception("未找到该空间。")
 
     def clearDisk(self):
         self.nowDisk = None
@@ -94,24 +94,24 @@ class StorageManager:
     def createDisk(self, dataBlockCount, inodeCount, diskName):
         for disk in self.disks:
             if disk.disk.diskName == diskName:
-                raise Exception("Disk with that name already exists.")
+                raise Exception("该空间已存在。")
         newDisk = HbDisk(dataBlockCount, inodeCount, diskName)
         newDm = DiskManager(newDisk)
         self.disks.append(newDm)
 
     def createFolder(self, folderName: str):
         if self.nowDisk is None:
-            raise Exception("You have to open a disk first")
+            raise Exception("你需要先打开一个空间。")
         self.nowDisk.createFolder(folderName)
 
     def createFile(self, fileName: str):
         if self.nowDisk is None:
-            raise Exception("You have to open a disk first")
+            raise Exception("你需要先打开一个空间。")
         return self.nowDisk.createFile(fileName)
 
     def deleteFile(self, fileName):
         if self.checkFileOpen(fileName) is not None:
-            raise Exception("You can't delete an opened file or folder. Close it first.")
+            raise Exception("该文件或文件夹已被占用，请关闭占用的文件。")
         self.nowDisk.deleteFile(fileName)
 
     def deleteFolder(self, folderName):
@@ -119,13 +119,13 @@ class StorageManager:
 
     def renameFile(self, oldName, newName):
         if self.checkFileOpen(oldName) is not None:
-            raise Exception("You can't rename an opened file or folder. Close it first.")
+            raise Exception("该文件或文件夹已被占用，请关闭占用的文件。")
         if self.nowDisk is None:
             for disk in self.disks:
                 if disk.disk.diskName == oldName:
                     disk.disk.rename(newName)
                     return
-            raise Exception("Disk with that name does not exist.")
+            raise Exception("空间已存在。")
         self.nowDisk.rename(oldName, newName)
 
     def getFileList(self):
@@ -170,12 +170,12 @@ class StorageManager:
 
     def closeFile(self, filePath: str):
         if filePath not in self.openedFile or self.openedFile[filePath].isLeaf:
-            raise Exception("File is not opened!")
+            raise Exception("文件未被打开!")
         dirList = filePath.split('/')
         for i in range(0, len(dirList)):
             filePath = '/'.join(dirList[:i + 1])
             if filePath not in self.openedFile:
-                raise Exception("Parent dir not in openedList, this should not happen!")
+                raise Exception("Parent dir not in openedList, which should not happen!!")
             else:
                 self.openedFile[filePath].counter -= 1
                 if self.openedFile[filePath].counter == 0:
@@ -183,7 +183,7 @@ class StorageManager:
 
     def readAll(self, filePath):
         if filePath not in self.openedFile:
-            raise Exception("File not opened. Open it in dirView first.")
+            raise Exception("文件未打开。在目录视图中点击文件打开。")
         file: HbFile = self.openedFile[filePath].file
         file.seek(0)
         content = file.read().decode("utf-8")
@@ -191,7 +191,7 @@ class StorageManager:
 
     def writeFromStart(self, filePath, content):
         if filePath not in self.openedFile:
-            raise Exception("File not opened. Open it in dirView first.")
+            raise Exception("文件未打开。在目录视图中点击文件打开。")
         file: HbFile = self.openedFile[filePath].file
         file.write(content.encode(), True)
 
@@ -201,7 +201,7 @@ class StorageManager:
 
     def downloadFile(self, filePath):
         if filePath not in self.openedFile or self.openedFile[filePath].isLeaf:
-            raise Exception("File not opened. Open it in dirView first.")
+            raise Exception("文件未打开。在目录视图中点击文件打开。")
         file = self.openedFile[filePath].file
         file.seek(0)
         return file
@@ -210,37 +210,3 @@ class StorageManager:
         for disk in self.disks:
             disk.disk.saveToDisk()
         os._exit(0)
-
-
-if __name__ == "__main__":
-    dk = HbDisk(500, 100, "MYDISK")
-    dk.rename("MYNewDisk")
-    dm = DiskManager(dk)
-    print(dk)
-    dm.createFolder("mf1")
-    dm.createFolder("mf3")
-    print(dk.inodeLeft)
-    print(dk.dataBlockLeft)
-    dm.createFolder("mf2")
-
-    dm.listFile()
-    dm.gotoDir("/mf2")
-    dm.createFolder("c")
-    dm.createFolder("c2")
-    dm.createFolder("c3")
-    dm.gotoDir("/mf2/c3")
-    f = dm.createFile("testFile")
-    f.write("sdsdssdsdsd".encode())
-    print(f.getSize())
-    f2 = dm.createFile("testFile2")
-    f2.write("sdsdssdsdsd".encode())
-
-    bio = dk.file
-    bio.seek(0)
-    dk2 = HbDisk(reader=bio, fileSize=dk.diskSize)
-    print(dk2.diskName)
-    dm2 = DiskManager(dk2)
-    dm2.gotoDir("/mf2/c3")
-    dm2.listFile()
-    f2 = dm2.getFile("testFile2")
-    print(f2.read().decode("utf-8"))

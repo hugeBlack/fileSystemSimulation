@@ -158,6 +158,8 @@ class FileItem extends HTMLElement{
     }
 
     deleteMe(){
+        let c = confirm("确定要删除"+this.fileName+"吗？")
+        if(!c) return
         deleteFile(this.fileName, this.isDir?1:0)
     }
 

@@ -90,5 +90,7 @@ function download(){
 
 function prepareUI(){
     pathDom.innerHTML = filePath
+    let a = filePath.split("/")
+    document.title = "文件视图 - " + a[a.length - 1]
 }
 prepareUI()

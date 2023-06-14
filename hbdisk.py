@@ -33,6 +33,8 @@ class HbDisk:
                                                                                                      self.read(32))
             self.diskNameLength = self.read(1)[0]
             self.diskName = self.read(self.diskNameLength).decode("utf-8")
+            blockBitMapLength = math.ceil(self.dataBlockCount / 8)
+            iNodeBitMapLength = math.ceil(self.inodeCount / 8)
         else:
             self.diskSize = 0
             self.dataBlockCount = dataBlockCount
@@ -52,15 +54,15 @@ class HbDisk:
             self.seek(self.diskNamePtr)
             self.write(encodedName)
             self.diskName = diskName
-        self.blockBitmapPtr = self.diskNamePtr + 255
-        self.seek(self.blockBitmapPtr)
-        # 初始化Block bitmap
-        blockBitMapLength = math.ceil(self.dataBlockCount / 8)
-        self.write(bytes(blockBitMapLength))
-        # 初始化Inode Bitmap
-        iNodeBitMapLength = math.ceil(self.inodeCount / 8)
-        self.write(bytes(iNodeBitMapLength))
+            self.seek(self.diskNamePtr + 255)
+            # 初始化Block bitmap
+            blockBitMapLength = math.ceil(self.dataBlockCount / 8)
+            self.write(bytes(blockBitMapLength))
+            # 初始化Inode Bitmap
+            iNodeBitMapLength = math.ceil(self.inodeCount / 8)
+            self.write(bytes(iNodeBitMapLength))
         # 计算4个表的起始地址
+        self.blockBitmapPtr = self.diskNamePtr + 255
         self.inodeBitmapPtr = self.blockBitmapPtr + math.ceil(self.dataBlockCount / 8)
         self.inodeTablePtr = self.inodeBitmapPtr + math.ceil(self.inodeCount / 8)
         self.dataTablePtr = self.inodeTablePtr + self.inodeCount * 128
@@ -77,6 +79,8 @@ class HbDisk:
 
     def allocINode(self):
         i = self.inodeBMHelper.allocZero()
+        if i == -1:
+            raise Exception("文件节点不足!")
         self.inodeLeft -= 1
         ptr = self.getINodePtr(i)
         self.seek(ptr)
@@ -87,7 +91,7 @@ class HbDisk:
     def allocBlock(self):
         i = self.blockBMHelper.allocZero()
         if i == -1:
-            raise Exception("Not Enough Space!")
+            raise Exception("空间不足!")
         self.dataBlockLeft -= 1
         ptr = self.getDataBlockPtr(i)
         self.seek(ptr)
@@ -98,13 +102,15 @@ class HbDisk:
     def releaseBlock(self, blockId):
         hasChanged = self.blockBMHelper.setZero(blockId)
         if not hasChanged:
-            raise Exception("Attempting to release an already released block.")
+            raise Exception("不能释放未被分配的块！")
         self.dataBlockLeft += 1
 
     def releaseINode(self, blockId):
         hasChanged = self.inodeBMHelper.setZero(blockId)
         if hasChanged:
             self.inodeLeft += 1
+        else:
+            raise Exception("不能释放未被文件节点！")
 
     def getINodePtr(self, inodeNumber: int):
         return self.inodeTablePtr + (inodeNumber << 7)
@@ -128,11 +134,11 @@ class HbDisk:
     def rename(self, newName: str):
         encodedName = newName.encode()
         if len(encodedName) > 255:
-            raise Exception("Disk name should be no longer than 255.")
+            raise Exception("空间名不得长于255。")
         if len(encodedName) == 0:
-            raise Exception("Disk name should be longer then 0 char.")
+            raise Exception("空间名不得为空。")
         if newName.find('/') > 0:
-            raise Exception("Disk name should not contain '/'.")
+            raise Exception("空间名不得包含'/'。")
         self.diskNameLength = len(encodedName)
         self.diskName = newName
 
@@ -529,7 +535,7 @@ class HbFolder(HbFile):
 
     def createDir(self, dirName: str):
         if self.findFileEntry(dirName) is not None:
-            raise Exception("File with that name already exists.")
+            raise Exception("该文件名已经被占用。")
         inode = INode(self.disk, self.disk.allocINode(), isNew=True)
         self.fileList.append(HbDirEntry(inode.ptr, 1, dirName))
         self.save()
@@ -541,13 +547,13 @@ class HbFolder(HbFile):
 
     def createFile(self, fileName):
         if self.findFileEntry(fileName) is not None:
-            raise Exception("File with that name already exists.")
+            raise Exception("该文件名已经被占用。")
         if len(fileName) > 255:
-            raise Exception("New name should be no longer than 255.")
+            raise Exception("新文件名长度不得大于255。")
         if len(fileName) == 0:
-            raise Exception("New name should longer then 0 char.")
+            raise Exception("新文件名不得为空。")
         if fileName.find('/') > 0:
-            raise Exception("File name should not contain '/'.")
+            raise Exception("新文件名不得包含'/'。")
         inode = INode(self.disk, self.disk.allocINode(), isNew=True)
         self.fileList.append(HbDirEntry(inode.ptr, 0, fileName))
         self.save()
@@ -555,28 +561,28 @@ class HbFolder(HbFile):
 
     def renameSubFile(self, oldName, newName):
         if len(newName) > 255:
-            raise Exception("New name should no longer than 255.")
+            raise Exception("新文件名长度不得大于255。")
         if len(newName) == 0:
-            raise Exception("New name should be longer then 0 char.")
+            raise Exception("新文件名不得为空。")
         if newName.find('/') > 0:
-            raise Exception("File name should not contain '/'.")
+            raise Exception("新文件名不得包含'/'。")
         entry = self.findFileEntry(oldName)
         if entry is None:
-            raise Exception("File with old name not found.")
+            raise Exception("未找到该文件。")
         entry.fileName = newName
         self.save()
 
     def deleteSubFile(self, fileName, recursive=False):
         entry = self.findFileEntry(fileName)
         if entry is None:
-            raise Exception("File with that name not found.")
+            raise Exception("未找到该文件。")
         self.deleteEntry(entry, recursive)
         self.fileList.remove(entry)
         self.save()
 
     def deleteEntry(self, entry, recursive):
         if entry.fileName == '..' or entry.fileName == '.':
-            raise "You can't delete this."
+            raise "你不能删除这个文件夹。"
         if entry.fileType != 1:
             file = HbFile(self.disk, "", INode(disk=self.disk, inodePtr=entry.inodePtr))
             file.resize(0)
@@ -591,7 +597,7 @@ class HbFolder(HbFile):
     def getFile(self, fileName: str):
         entry = self.findFileEntry(fileName)
         if entry is None:
-            raise Exception("File with that name not found.")
+            raise Exception("未找到该文件。")
         if entry.fileType == 0:
             return HbFile(self.disk, "", INode(disk=self.disk, inodePtr=entry.inodePtr))
         elif entry.fileType == 1:
@@ -601,16 +607,3 @@ class HbFolder(HbFile):
         for entry in self.fileList:
             if entry.fileName != '..' and entry.fileName != '.':
                 self.deleteEntry(entry, True)
-
-
-if __name__ == "__main__":
-    # 24block 8inode
-    dk = HbDisk(500, 8)
-
-    # f = HbFile(dk, "", inode)
-    data = randbytes(432000)
-    # data2 = randbytes(11450)
-    #
-    # f.write(data)
-    # f.write(data2)
-    # f.seek(0)

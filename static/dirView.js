@@ -30,10 +30,11 @@ function refreshFileList(dataObj){
     if(dataObj.nowDir.length === 0){
         fw.appendChild(new DiskList(dataObj.disks))
         controlBarDom.classList.add("diskMode")
-
+        document.title = "目录视图 - 空间列表"
     }else{
         fw.appendChild(new FileList(dataObj.files,"/test"))
         controlBarDom.classList.remove("diskMode")
+        document.title = "目录视图 - " + dirList[dirList.length-1]
     }
 }
 
@@ -248,6 +249,7 @@ function uploadFile(){
                 return
             }
         refreshFileList(f.data)
+        fileInput.value = ""
         }
     )
 }
@@ -266,7 +268,10 @@ function powerOff(){
             }
         }
     )
-    window.close()
+    setTimeout(()=>{
+        window.close()
+    },1000)
+
 }
 
 updateFileList()

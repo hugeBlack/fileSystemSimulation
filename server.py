@@ -1,4 +1,3 @@
-import json
 import math
 from hbdisk import HbDisk
 from flask import Flask, request, send_file, jsonify, redirect

@@ -1,6 +1,6 @@
 import os
 
-from hbdisk import HbDisk, HbFile, HbFolder, HbDirEntry, INode
+from hbdisk import HbDisk, HbFile, HbFolder, INode
 
 
 class DiskManager:

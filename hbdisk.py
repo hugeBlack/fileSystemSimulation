@@ -1,12 +1,9 @@
 import io
 import struct
 import math
-import hashlib
 from typing import BinaryIO
-
 from helpers import BitMapHelper
 import time
-from random import randbytes
 
 
 def toBytes(v: int):
